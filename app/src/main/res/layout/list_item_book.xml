@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/bookCover"
+        android:layout_width="73dp"
+        android:layout_height="108dp" />
+
+    <TextView
+        android:id="@+id/bookName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@+id/bookCover"
+        android:paddingLeft="10dp"
+        android:paddingRight="10dp"
+        android:text="book Name"/>
+
+    <RatingBar
+        style="@android:style/Widget.Holo.RatingBar.Small"
+        android:id="@+id/rating"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_toRightOf="@+id/bookCover"
+        android:layout_below="@id/bookName"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"/>
+
+    <TextView
+        android:id="@+id/bookInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
+        android:layout_below="@+id/rating"
+        android:layout_toRightOf="@id/bookCover"
+        android:text="book information"/>
+</RelativeLayout>
