@@ -10,7 +10,15 @@ import java.util.List;
  * Created by cyang on 10/20/14.
  */
 public class Books {
-    public List<Book> getBooks(JSONObject jsonData) {
+
+    private JSONObject jsonData;
+
+    Books(JSONObject jsonData)
+    {
+        this.jsonData = jsonData;
+    }
+
+    public List<Book> getBooks() {
         JSONArray array = jsonData.optJSONArray("books");
         List<Book> books = new ArrayList<Book>(array.length());
 
@@ -20,5 +28,9 @@ public class Books {
         }
 
         return books;
+    }
+
+    public int getTotal() {
+        return jsonData.optInt("total");
     }
 }

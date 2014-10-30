@@ -5,11 +5,14 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.Image;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -18,10 +21,17 @@ import android.widget.TextView;
 
 import org.json.JSONObject;
 
+import java.util.LinkedList;
 import java.util.List;
 
-public class BookListFragment extends Fragment {
+public class BookListFragment
+        extends Fragment
+        implements SwipeRefreshLayout.OnRefreshListener {
 
+    private SwipeRefreshLayout swipeRefreshLayout;
+    private MyBookListAdapter adapter;
+    private Boolean hasMoreItem = false;
+    private Boolean isLoading = false;
 
     public BookListFragment() {
     }
@@ -30,34 +40,104 @@ public class BookListFragment extends Fragment {
     public View onCreateView(final LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View rootView = inflater.inflate(R.layout.fragment_book_list, container, false);
-        final List<Book> books = new Books().getBooks(DataFetcher.readDataFromFile(getActivity()));
 
+        swipeRefreshLayout = (SwipeRefreshLayout)rootView.findViewById(R.id.swipeRefreshLayout);
+        swipeRefreshLayout.setColorSchemeResources(android.R.color.holo_blue_light,
+                android.R.color.holo_green_light,
+                android.R.color.holo_orange_light,
+                android.R.color.holo_red_light
+        );
+        swipeRefreshLayout.setOnRefreshListener(this);
+
+        adapter = new MyBookListAdapter(getActivity());
         final ListView bookList = (ListView) rootView.findViewById(R.id.bookList);
+        bookList.setAdapter(adapter);
 
-        new AsyncTask<String, Void, List<Book>>() {
-            @Override
-            protected List<Book> doInBackground(String... strings) {
-                JSONObject data = DataFetcher.readDataFromUrl(strings[0]);
-                return new Books().getBooks(data);
-            }
-            @Override
-            protected void onPostExecute(List<Book> books) {
-                super.onPostExecute(books);
-                bookList.setAdapter(new MyBookListAdapter(books, getActivity()));
-            }
-        }.execute("https://api.douban.com/v2/book/search?tag=Computer");
+        bookList.setOnScrollListener(new ListView.OnScrollListener() {
 
-        //bookList.setAdapter(new MyBookListAdapter(books, getActivity()));
+            @Override
+            public void onScrollStateChanged(AbsListView absListView, int i) {
+
+            }
+
+            @Override
+            public void onScroll(AbsListView absListView, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+                if (totalItemCount > 0 ) {
+                    int lastVisibleItem = firstVisibleItem + visibleItemCount;
+                    if (lastVisibleItem == totalItemCount && !isLoading && hasMoreItem) {
+                        doLoadMore();
+                    }
+                }
+            }
+        });
+
+        doRefresh();
+
         return rootView;
+    }
+
+    private String makeDoubanUrl(final String tag, int count, int start)
+    {
+        return String.format("https://api.douban.com/v2/book/search?tag=%s&count=%d&start=%d",
+                Uri.encode(tag), count, start);
+    }
+
+    private void doRefresh() {
+        new AsyncTask<String, Void, Books>() {
+            @Override
+            protected Books doInBackground(String... strings) {
+                JSONObject data = DataFetcher.readDataFromUrl(strings[0]);
+                return new Books(data);
+            }
+            @Override
+            protected void onPostExecute(Books books) {
+                super.onPostExecute(books);
+                adapter.clear();
+                adapter.addAll(books.getBooks());
+                swipeRefreshLayout.setRefreshing(false);
+                hasMoreItem = books.getTotal() > adapter.getCount();
+            }
+            @Override
+            protected void onPreExecute() {
+                super.onPreExecute();
+                swipeRefreshLayout.setRefreshing(true);
+            }
+        }.execute(makeDoubanUrl("Computer", 20, 0));
+    }
+
+    private void doLoadMore() {
+        new AsyncTask<String, Void, Books>() {
+            @Override
+            protected Books doInBackground(String... strings) {
+                JSONObject data = DataFetcher.readDataFromUrl(strings[0]);
+                return new Books(data);
+            }
+            @Override
+            protected void onPostExecute(Books books) {
+                super.onPostExecute(books);
+                adapter.addAll(books.getBooks());
+                isLoading = false;
+                hasMoreItem = books.getTotal() > adapter.getCount();
+            }
+            @Override
+            protected void onPreExecute() {
+                super.onPreExecute();
+                isLoading = true;
+            }
+        }.execute(makeDoubanUrl("Computer", 20, adapter.getCount()));
+    }
+
+    @Override
+    public void onRefresh() {
+        doRefresh();
     }
 
     static class MyBookListAdapter extends BaseAdapter {
         private List<Book> books;
         private Context context;
 
-        MyBookListAdapter(List<Book> books, Context context) {
-            this.books = books;
-
+        MyBookListAdapter(Context context) {
+            this.books = new LinkedList<Book>();
             this.context = context;
         }
 
@@ -102,8 +182,6 @@ public class BookListFragment extends Fragment {
 
             final Book book = getItem(position);
 
-            //viewHolder.bookCover.setImageBitmap(BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_default_cover));
-
             viewHolder.imageUrl = book.getImage();
 
             ImageLoader.loadImage(book.getImage(), new ImageLoader.ImageLoaderListener() {
@@ -120,6 +198,16 @@ public class BookListFragment extends Fragment {
             viewHolder.bookInfo.setText(book.getInformation());
 
             return convertView;
+        }
+
+        public void addAll(List<Book> books) {
+            this.books.addAll(books);
+            notifyDataSetChanged();
+        }
+
+        public void clear() {
+            books.clear();
+            notifyDataSetChanged();
         }
     }
 
